@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Intro JavaScript Quiz</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --card-border: #2a2d3a;
+    --accent: #7c6cfe;
+    --accent-glow: rgba(124,108,254,0.25);
+    --correct: #4ade80;
+    --correct-bg: rgba(74,222,128,0.12);
+    --wrong: #f87171;
+    --wrong-bg: rgba(248,113,113,0.12);
+    --text: #e2e4ea;
+    --text-dim: #6b6f82;
+    --text-mid: #a0a4b5;
+    --radius: 14px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* --- subtle noise grain overlay --- */
+  body::before {
+    content:'';
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+  }
+  /* --- accent blob --- */
+  .blob {
+    position:fixed; width:500px; height:500px; border-radius:50%;
+    filter: blur(140px); opacity:.18; pointer-events:none; z-index:0;
+  }
+  .blob-1 { background: var(--accent); top:-150px; right:-100px; }
+  .blob-2 { background:#3b82f6; bottom:-200px; left:-180px; }
+
+  /* ---------- LAYOUT ---------- */
+  #app { position:relative; z-index:1; max-width:720px; margin:0 auto; padding:40px 20px 60px; }
+
+  /* ---------- HEADER ---------- */
+  .header { text-align:center; margin-bottom:36px; }
+  .header h1 {
+    font-family:'Syne',sans-serif; font-weight:800; font-size:2.1rem;
+    background: linear-gradient(135deg, #fff 30%, var(--accent));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    background-clip:text; letter-spacing:-0.5px;
+  }
+  .header p { color:var(--text-dim); margin-top:6px; font-size:.9rem; font-weight:300; }
+
+  /* ---------- PROGRESS BAR ---------- */
+  .progress-wrap { margin-bottom:28px; }
+  .progress-meta { display:flex; justify-content:space-between; font-size:.8rem; color:var(--text-dim); margin-bottom:8px; }
+  .progress-meta span:last-child { color:var(--accent); font-weight:500; }
+  .progress-bg { background:var(--card); border-radius:999px; height:6px; overflow:hidden; border:1px solid var(--card-border); }
+  .progress-fill { height:100%; background:var(--accent); border-radius:999px; transition: width .35s ease; }
+
+  /* ---------- SCORE BADGE ---------- */
+  .score-badge {
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--card); border:1px solid var(--card-border);
+    border-radius:999px; padding:6px 16px; font-size:.82rem;
+    position:absolute; top:0; right:0;
+  }
+  .score-badge .dot { width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 6px var(--accent-glow); }
+  .score-badge span { color:var(--text-mid); }
+  .score-badge strong { color:#fff; font-weight:600; }
+
+  /* ---------- QUESTION CARD ---------- */
+  .card {
+    background:var(--card); border:1px solid var(--card-border);
+    border-radius:var(--radius); padding:32px 28px 24px;
+    backdrop-filter:blur(6px);
+    animation: slideUp .3s ease both;
+  }
+  @keyframes slideUp {
+    from { opacity:0; transform:translateY(18px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .question-num {
+    font-family:'Syne',sans-serif; font-size:.75rem; font-weight:700;
+    color:var(--accent); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:10px;
+  }
+  .question-text { font-size:1.05rem; font-weight:400; line-height:1.55; color:#fff; margin-bottom:24px; }
+
+  /* ---------- OPTIONS ---------- */
+  .options { display:flex; flex-direction:column; gap:10px; }
+  .option {
+    display:flex; align-items:center; gap:14px;
+    border:1px solid var(--card-border); border-radius:10px;
+    padding:13px 16px; cursor:pointer;
+    background: rgba(255,255,255,0.02);
+    transition: border-color .2s, background .2s, transform .1s;
+    user-select:none;
+  }
+  .option:hover:not(.disabled) { border-color:var(--accent); background:var(--accent-glow); }
+  .option:active:not(.disabled) { transform:scale(.98); }
+  .option.selected { border-color:var(--accent); background:var(--accent-glow); }
+  .option.correct { border-color:var(--correct); background:var(--correct-bg); }
+  .option.wrong   { border-color:var(--wrong);   background:var(--wrong-bg); }
+  .option.disabled { cursor:default; }
+  .option-label {
+    width:28px; height:28px; border-radius:6px; border:1px solid var(--card-border);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Syne',sans-serif; font-weight:700; font-size:.78rem;
+    color:var(--text-mid); flex-shrink:0; transition:background .2s, border-color .2s, color .2s;
+  }
+  .option.selected .option-label,
+  .option.correct .option-label { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .option.wrong .option-label  { background:var(--wrong);   border-color:var(--wrong);   color:#fff; }
+  .option-text { font-size:.92rem; color:var(--text); }
+
+  /* feedback chip */
+  .feedback {
+    margin-top:16px; padding:10px 14px; border-radius:8px; font-size:.82rem;
+    display:none; animation:fadeIn .25s ease;
+  }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .feedback.correct { background:var(--correct-bg); color:var(--correct); border:1px solid rgba(74,222,128,.25); display:block; }
+  .feedback.wrong   { background:var(--wrong-bg);   color:var(--wrong);   border:1px solid rgba(248,113,113,.25); display:block; }
+  .feedback strong  { color:#fff; }
+
+  /* ---------- NAV BUTTONS ---------- */
+  .nav { display:flex; justify-content:space-between; align-items:center; margin-top:26px; gap:12px; }
+  .btn {
+    font-family:'Syne',sans-serif; font-weight:600; font-size:.85rem;
+    padding:10px 24px; border-radius:8px; border:none; cursor:pointer;
+    transition: transform .1s, box-shadow .2s, background .2s;
+    letter-spacing:.3px;
+  }
+  .btn:active { transform:scale(.96); }
+  .btn-primary { background:var(--accent); color:#fff; box-shadow:0 2px 14px var(--accent-glow); }
+  .btn-primary:hover { box-shadow:0 4px 20px var(--accent-glow); }
+  .btn-ghost { background:transparent; color:var(--text-mid); border:1px solid var(--card-border); }
+  .btn-ghost:hover { border-color:var(--accent); color:#fff; }
+
+  /* ---------- RESULTS SCREEN ---------- */
+  .results { text-align:center; animation:slideUp .4s ease; }
+  .results-circle {
+    width:160px; height:160px; border-radius:50%; margin:0 auto 28px;
+    border:4px solid var(--accent); display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    background: conic-gradient(var(--accent) 0deg var(--score-deg, 0deg), var(--card-border) var(--score-deg, 0deg) 360deg);
+    box-shadow:0 0 40px var(--accent-glow);
+  }
+  .results-circle .pct {
+    font-family:'Syne',sans-serif; font-weight:800; font-size:2.4rem; color:#fff;
+  }
+  .results-circle .pct-label { font-size:.72rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; }
+  .results h2 { font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:700; color:#fff; margin-bottom:8px; }
+  .results p { color:var(--text-mid); font-size:.92rem; margin-bottom:28px; line-height:1.5; }
+  .results-actions { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; }
+
+  /* ---------- DOWNLOAD / FOOTER BTNS ---------- */
+  .top-bar { display:flex; justify-content:flex-end; margin-bottom:16px; }
+  .btn-dl { font-size:.78rem; padding:7px 14px; }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media(max-width:520px){
+    #app { padding:24px 14px 50px; }
+    .card { padding:22px 18px 18px; }
+    .header h1 { font-size:1.6rem; }
+    .score-badge { position:static; margin-bottom:12px; }
+  }
+</style>
+</head>
+<body>
+<!-- blobs -->
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div id="app">
+  <div class="top-bar">
+    <button class="btn btn-ghost btn-dl" onclick="downloadQuiz()">⬇ Download HTML</button>
+  </div>
+  <div class="header">
+    <h1>Intro JavaScript Quiz</h1>
+    <p>100 questions · one correct answer each</p>
+  </div>
+  <!-- live score -->
+  <div class="score-badge"><span class="dot"></span><span>Score:</span><strong id="scoreTxt">0 / 100</strong></div>
+
+  <!-- progress -->
+  <div class="progress-wrap">
+    <div class="progress-meta"><span id="qLabel">Question 1 of 100</span><span id="pctLabel">0%</span></div>
+    <div class="progress-bg"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <!-- quiz area (card or results injected here) -->
+  <div id="quizArea"></div>
+</div>
+
+<script>
+// ============================================================
+// QUESTION DATA  –  answer key uses the INDEX (0-based) of the correct option
+// ============================================================
+const RAW = [
+  // --- Syntax and Structure ---
+  { q:"Which symbol is used to end most JavaScript statements?", o:[":", ";", ",", "."], a:1 },
+  { q:"Which of the following is a valid JavaScript comment?", o:["<!-- comment -->", "# comment", "// comment", "** comment **"], a:2 },
+  { q:"JavaScript code is typically executed:", o:["From bottom to top","From right to left","From top to bottom","Randomly"], a:2 },
+  { q:"Which keyword is used to write a comment that spans multiple lines?", o:["//","<!-- -->","/* */","** **"], a:2 },
+  { q:"Which of the following best describes JavaScript?", o:["A compiled language only","A markup language","An interpreted scripting language","A database language"], a:2 },
+
+  // --- Variables ---
+  { q:"Which keyword allows block‑scoped variables?", o:["var","let","define","static"], a:1 },
+  { q:"Which keyword declares a variable that cannot be reassigned?", o:["let","var","const","final"], a:2 },
+  { q:"What happens if you use a variable without declaring it (non‑strict mode)?", o:["Syntax error","Runtime crash","It becomes a global variable","Nothing happens"], a:2 },
+  { q:"Which variable name is valid?", o:["2value","first-name","_count","let"], a:2 },
+  { q:"Which statement about var is true?", o:["It is block‑scoped","It is function‑scoped","It cannot be redeclared","It must be initialized"], a:1 },
+
+  // --- Data Types ---
+  { q:"Which of the following is NOT a JavaScript data type?", o:["string","number","float","boolean"], a:2 },
+  { q:"What value does an uninitialized variable have?", o:["null","false","undefined","0"], a:2 },
+  { q:"Which data type represents true or false values?", o:["number","boolean","string","null"], a:1 },
+  { q:"Arrays in JavaScript are:", o:["A primitive type","A special kind of object","A function","A loop"], a:1 },
+  { q:"What is the type of null in JavaScript?", o:["null","undefined","object","boolean"], a:2 },
+
+  // --- Primitive Types and Objects ---
+  { q:"Which of the following is a primitive type?", o:["array","object","string","JSON"], a:2 },
+  { q:"Which keyword defines a function?", o:["function","method","def","fn"], a:0 },
+  { q:'What does typeof "Hello" return?', o:["text","string","object","char"], a:1 },
+  { q:"Symbols are primarily used to:", o:["Store numbers","Create unique identifiers","Manipulate strings","Handle errors"], a:1 },
+  { q:"Which syntax defines a JSON object literal?", o:['(name = "Sam")','[name: "Sam"]','{ "name": "Sam" }','Sam'], a:2 },
+
+  // --- Operators ---
+  { q:'What is the result of 5 + "5"?', o:["10",'"10"','"55"',"Error"], a:2 },
+  { q:"Which operator checks both value and type?", o:["==","=","===","!="], a:2 },
+  { q:"What does the && operator represent?", o:["OR","AND","NOT","XOR"], a:1 },
+  { q:"Which operator is used for assignment?", o:["==","===","=","!="], a:2 },
+  { q:"What does the ternary operator return?", o:["A loop","A function","One of two values","Always true"], a:2 },
+
+  // --- Control Flow ---
+  { q:"Which keyword starts a conditional statement?", o:["when","if","for","case"], a:1 },
+  { q:"What runs if no conditions in an if/else chain are true?", o:["if","else if","else","default"], a:2 },
+  { q:"Which keyword is used in a switch statement?", o:["when","case","if","loop"], a:1 },
+  { q:"What keyword exits a switch case?", o:["stop","exit","break","return"], a:2 },
+  { q:"Which statement evaluates multiple conditions?", o:["for","switch","while","do"], a:1 },
+
+  // --- Loops ---
+  { q:"Which loop is guaranteed to run at least once?", o:["for","while","do...while","for...of"], a:2 },
+  { q:"Which loop is best for iterating over array values?", o:["for...in","for...of","while","do...while"], a:1 },
+  { q:"for...in loops iterate over:", o:["Values","Indexes or keys","Functions","Objects only"], a:1 },
+  { q:"Which keyword stops a loop entirely?", o:["skip","break","continue","exit"], a:1 },
+  { q:"Which keyword skips to the next iteration?", o:["pass","break","continue","next"], a:2 },
+
+  // --- Functions ---
+  { q:"How do you call a function named greet?", o:["call greet","greet[]","greet()","run greet"], a:2 },
+  { q:"What are values passed into a function called?", o:["Returns","Arguments","Properties","Methods"], a:1 },
+  { q:"What does a function return if no return statement is used?", o:["null","false","undefined","0"], a:2 },
+  { q:"Arrow functions use which symbol?", o:["=>","->",":=","==>"], a:0 },
+  { q:"Function expressions are:", o:["Hoisted fully","Assigned to variables","Invalid syntax","Only anonymous"], a:1 },
+
+  // --- Objects ---
+  { q:"How do you access an object property named age?", o:["object(age)","object->age","object.age","object::age"], a:2 },
+  { q:"Methods are:", o:["Variables in objects","Loops in objects","Functions in objects","Arrays in objects"], a:2 },
+  { q:"Which keyword creates an object constructor?", o:["class","object","new","make"], a:2 },
+  { q:"Objects store data as:", o:["Lists","Key‑value pairs","Arrays only","Strings"], a:1 },
+  { q:"Which method converts an object to JSON?", o:["JSON.stringify()","JSON.parse()","Object.toJSON()","stringify()"], a:0 },
+
+  // --- Arrays ---
+  { q:"Which method creates a new array by transforming each element?", o:["forEach","filter","map","reduce"], a:2 },
+  { q:"Which method removes elements based on a condition?", o:["map","filter","reduce","push"], a:1 },
+  { q:"reduce() is commonly used to:", o:["Sort arrays","Remove duplicates","Combine values into one","Loop infinitely"], a:2 },
+  { q:"Which method adds an element to the end of an array?", o:["pop","shift","push","unshift"], a:2 },
+  { q:"Array indexes start at:", o:["1","-1","0","Any number"], a:2 },
+
+  // --- DOM Manipulation ---
+  { q:"What does DOM stand for?", o:["Document Object Model","Data Object Map","Digital Output Method","Document Order Mode"], a:0 },
+  { q:"Which method selects an element by ID?", o:["querySelectorAll","getElementById","getElementsByClass","selectById"], a:1 },
+  { q:"Which property changes text content?", o:["innerText","value","className","style"], a:0 },
+  { q:"Which method adds a CSS class?", o:["classAdd","addClass","classList.add","style.add"], a:2 },
+  { q:"The DOM represents a webpage as:", o:["A loop","A tree structure","An array","A string"], a:1 },
+
+  // --- Events ---
+  { q:"Which method listens for events?", o:["onEvent","addEventListener","watchEvent","eventHandler"], a:1 },
+  { q:"A click is an example of a:", o:["Loop","Method","Event","Variable"], a:2 },
+  { q:"Which event fires when a form is submitted?", o:["click","change","submit","input"], a:2 },
+  { q:"setTimeout is an example of:", o:["Sync code","Async behavior","A loop","An error"], a:1 },
+  { q:"Event objects provide access to:", o:["Page styles","User interactions","Server data","Database records"], a:1 },
+
+  // --- Web APIs ---
+  { q:"Which function displays a popup message?", o:["alert()","prompt()","confirm()","message()"], a:0 },
+  { q:"Which API stores data permanently in the browser?", o:["sessionStorage","cookies only","localStorage","cache"], a:2 },
+  { q:"prompt() returns:", o:["true or false","A number","User input as a string","An object"], a:2 },
+  { q:"confirm() returns:", o:["A string","A number","A boolean","null"], a:2 },
+  { q:"sessionStorage data lasts until:", o:["Browser restart","Page refresh","Tab is closed","Cache is cleared"], a:2 },
+
+  // --- Exception Handling ---
+  { q:"Which keyword handles errors?", o:["catch","error","fix","handle"], a:0 },
+  { q:"try blocks are used to:", o:["Stop code","Catch loops","Test code for errors","Log output"], a:2 },
+  { q:"Which keyword runs regardless of errors?", o:["catch","finally","throw","end"], a:1 },
+  { q:"throw is used to:", o:["Log errors","Ignore errors","Create custom errors","Fix bugs"], a:2 },
+  { q:"Errors stop execution unless:", o:["A loop exists","A function exists","They are caught","They are logged"], a:2 },
+
+  // --- Console Input / Output ---
+  { q:"Which method logs output to the console?", o:["print()","log()","console.log()","output()"], a:2 },
+  { q:"console.error() is used for:", o:["Warnings","Debugging only","Error messages","User input"], a:2 },
+  { q:"console.table() is best for:", o:["Strings","Objects and arrays","Numbers","Errors"], a:1 },
+  { q:"Console output is mainly used for:", o:["Styling pages","User interaction","Debugging","Storing data"], a:2 },
+  { q:"Which console method shows warnings?", o:["console.log()","console.warn()","console.error()","console.info()"], a:1 },
+
+  // --- Mixed / Review ---
+  { q:"Which type is returned by typeof []?", o:["array","list","object","undefined"], a:2 },
+  { q:"Which loop is best for objects?", o:["for","for...in","for...of","while"], a:1 },
+  { q:"What does NaN stand for?", o:["Not a Number","Null and None","New and Numeric","Number as Name"], a:0 },
+  { q:"Which value is falsy?", o:['"hello"',"1","[]","0"], a:3 },
+  { q:"Which keyword enables strict mode?", o:["strict",'"use strict"',"enableStrict","mode"], a:1 },
+  { q:"Which method converts JSON to an object?", o:["JSON.stringify()","JSON.convert()","JSON.parse()","JSON.object()"], a:2 },
+  { q:"Which operator negates a boolean?", o:["!","&&","||","=="], a:0 },
+  { q:"Which scope is created by functions?", o:["Global","Block","Function","Module"], a:2 },
+  { q:'Which value represents "no value intentionally"?', o:["undefined","null","false","NaN"], a:1 },
+  { q:"What happens when const holds an object?", o:["Object is immutable","Properties can still change","Causes error","Converts to let"], a:1 },
+  { q:"Which method loops without returning a new array?", o:["map","filter","reduce","forEach"], a:3 },
+  { q:"Which DOM method selects the first matching element?", o:["getElementsByClassName","querySelector","querySelectorAll","selectOne"], a:1 },
+  { q:"Which event listens for keyboard input?", o:["click","keydown","mouseover","submit"], a:1 },
+  { q:"Which storage is cleared when the tab closes?", o:["cookies","localStorage","sessionStorage","cache"], a:2 },
+  { q:"Which keyword defines a class?", o:["object","constructor","class","prototype"], a:2 },
+  { q:"Which statement skips remaining code in a loop iteration?", o:["break","stop","continue","pass"], a:2 },
+  { q:"Which operator combines strings?", o:["*","+","==","&&"], a:1 },
+  { q:"Which function runs after a delay?", o:["setInterval","setTimeout","delay()","wait()"], a:1 },
+  { q:"Which data structure uses key‑value pairs?", o:["Array","Object","String","Number"], a:1 },
+  { q:"Which error occurs when accessing undefined variables?", o:["SyntaxError","TypeError","ReferenceError","RangeError"], a:2 },
+  { q:"Which keyword stops function execution and sends a value back?", o:["break","stop","return","send"], a:2 },
+  { q:"Which array method removes the last element?", o:["pop","push","shift","unshift"], a:0 },
+  { q:'Which value is truthy?', o:["0",'""',"null",'"0"'], a:3 },
+  { q:"Which statement best describes JavaScript?", o:["Strongly typed","Statically typed","Dynamically typed","Not typed"], a:2 },
+  { q:"Which tool is best for debugging JavaScript?", o:["alert()","console.log()","prompt()","confirm()"], a:1 },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let questions = [];   // shuffled copy
+let current  = 0;
+let score    = 0;
+let answered = false;
+
+const LABELS = ["A","B","C","D"];
+
+// ============================================================
+// SHUFFLE (Fisher-Yates)
+// ============================================================
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+// ============================================================
+// INIT / RESTART
+// ============================================================
+function init(){
+  // shuffle questions AND shuffle each question's options (keep answer correct)
+  questions = shuffle(RAW).map(q => {
+    const indices = [0,1,2,3];
+    const shuffled = shuffle(indices);
+    const newA = shuffled.indexOf(q.a);
+    return { q: q.q, o: shuffled.map(i => q.o[i]), a: newA };
+  });
+  current  = 0;
+  score    = 0;
+  answered = false;
+  renderQuestion();
+}
+
+// ============================================================
+// RENDER QUESTION
+// ============================================================
+function renderQuestion(){
+  answered = false;
+  const qObj = questions[current];
+  const pct  = Math.round((current/questions.length)*100);
+
+  document.getElementById('qLabel').textContent   = `Question ${current+1} of ${questions.length}`;
+  document.getElementById('pctLabel').textContent  = pct+'%';
+  document.getElementById('progressFill').style.width = pct+'%';
+  document.getElementById('scoreTxt').textContent  = `${score} / ${questions.length}`;
+
+  let optHtml = qObj.o.map((opt,i) =>
+    `<div class="option" id="opt${i}" onclick="choose(${i})">
+       <div class="option-label">${LABELS[i]}</div>
+       <div class="option-text">${opt}</div>
+     </div>`
+  ).join('');
+
+  document.getElementById('quizArea').innerHTML = `
+    <div class="card">
+      <div class="question-num">Question ${current+1}</div>
+      <div class="question-text">${qObj.q}</div>
+      <div class="options" id="options">${optHtml}</div>
+      <div class="feedback" id="feedback"></div>
+      <div class="nav">
+        <button class="btn btn-ghost" onclick="init()">↻ Restart</button>
+        <button class="btn btn-primary" id="nextBtn" onclick="next()" style="display:none">Next →</button>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// CHOOSE ANSWER
+// ============================================================
+function choose(idx){
+  if(answered) return;
+  answered = true;
+  const qObj   = questions[current];
+  const isRight = idx === qObj.a;
+  if(isRight) score++;
+
+  // style options
+  document.getElementById('opt'+idx).classList.add(isRight ? 'correct' : 'wrong', 'disabled');
+  if(!isRight){
+    document.getElementById('opt'+qObj.a).classList.add('correct','disabled');
+  }
+  // disable all
+  document.querySelectorAll('.option').forEach(el => el.classList.add('disabled'));
+
+  // feedback
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback ' + (isRight ? 'correct' : 'wrong');
+  fb.innerHTML = isRight
+    ? '<strong>Correct!</strong> Nice work.'
+    : `<strong>Incorrect.</strong> The correct answer is <strong>${LABELS[qObj.a]}</strong>.`;
+
+  // update live score
+  document.getElementById('scoreTxt').textContent = `${score} / ${questions.length}`;
+
+  // show next / finish btn
+  const nextBtn = document.getElementById('nextBtn');
+  nextBtn.style.display = 'inline-block';
+  if(current === questions.length - 1){
+    nextBtn.textContent = 'See Results';
+  }
+}
+
+// ============================================================
+// NEXT
+// ============================================================
+function next(){
+  current++;
+  if(current >= questions.length){ renderResults(); }
+  else { renderQuestion(); }
+}
+
+// ============================================================
+// RESULTS
+// ============================================================
+function renderResults(){
+  const pct   = Math.round((score/questions.length)*100);
+  const deg   = Math.round((score/questions.length)*360);
+  let emoji   = pct===100?'🏆':pct>=80?'🔥':pct>=60?'👍':pct>=40?'📚':'💪';
+  let msg;
+  if(pct===100) msg="Perfect score — you nailed every single question!";
+  else if(pct>=80) msg=`Impressive! You got ${score} out of ${questions.length} correct. A few more reviews and you'll own it.`;
+  else if(pct>=60) msg=`Solid effort! ${score}/${questions.length} correct. Keep drilling the trickier topics.`;
+  else if(pct>=40) msg=`You're building up — ${score}/${questions.length} correct. Review the basics and give it another shot.`;
+  else msg=`${score}/${questions.length} correct. Don't worry — restart and work through it step by step!`;
+
+  document.getElementById('quizArea').innerHTML = `
+    <div class="results card">
+      <div class="results-circle" style="--score-deg:${deg}deg">
+        <div class="pct">${pct}%</div>
+        <div class="pct-label">Score</div>
+      </div>
+      <h2>${emoji} ${pct}%</h2>
+      <p>${msg}</p>
+      <div class="results-actions">
+        <button class="btn btn-primary" onclick="init()">↻ Try Again (new order)</button>
+        <button class="btn btn-ghost" onclick="downloadQuiz()">⬇ Download HTML</button>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// DOWNLOAD
+// ============================================================
+function downloadQuiz(){
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob([html], {type:'text/html'});
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = 'JS_Quiz.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ============================================================
+// GO
+// ============================================================
+init();
+</script>
+</body>
+</html>
